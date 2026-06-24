@@ -1,0 +1,14 @@
+==================================================
+METADATA ENRICHMENT VALIDATION REPORT
+==================================================
+
+Classes             : 1616/1616 with line numbers (100.0%)
+Structs             : 288/288 with line numbers (100.0%)
+Enums               : 373/373 with line numbers (100.0%)
+Typedefs            : 799/799 with line numbers (100.0%)
+Namespaces          : 54/54 with line numbers (100.0%)
+
+Functions           : 30833/30833 with structured params (100.0%)
+Methods             : 6554/6554 with structured params (100.0%)
+
+Enums (Values)      : 358/373 with extracted values (96.0%)

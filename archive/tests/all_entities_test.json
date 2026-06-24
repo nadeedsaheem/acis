@@ -1,0 +1,241 @@
+[
+  {
+    "file": "ablapi.hxx",
+    "path": "include/ablapi.hxx",
+    "file_type": "header",
+    "stats": {
+      "function_count": 25,
+      "class_count": 6,
+      "struct_count": 0,
+      "enum_count": 0,
+      "typedef_count": 0,
+      "namespace_count": 0,
+      "include_count": 9,
+      "inheritance_count": 0
+    },
+    "functions": [
+      "api_abh_chamfer_edges",
+      "api_abh_edge_offset",
+      "api_abh_edge_project",
+      "api_abh_vblend",
+      "api_blend_edges_pos_rad",
+      "api_blend_holdline",
+      "api_blend_holdline_face_face",
+      "api_blend_three_ent",
+      "api_initialize_advanced_blending",
+      "api_make_radius_constant",
+      "api_make_radius_fixed_width",
+      "api_make_radius_holdline",
+      "api_make_radius_param_rads",
+      "api_make_radius_param_rads_tan",
+      "api_make_radius_pos_rads",
+      "api_make_radius_rnd_chamfer",
+      "api_make_radius_rot_ellipse",
+      "api_make_radius_spline_rad",
+      "api_make_radius_two_ends",
+      "api_set_abh_blends",
+      "api_set_cc_blend",
+      "api_set_ee_cr_blend",
+      "api_set_ee_vr_blend",
+      "api_set_inst_blend",
+      "api_terminate_advanced_blending"
+    ],
+    "classes": [
+      "CURVE",
+      "EDGE",
+      "ENTITY",
+      "ENTITY_LIST",
+      "SPAposition",
+      "outcome"
+    ],
+    "structs": [],
+    "enums": [],
+    "typedefs": [],
+    "namespaces": [],
+    "includes": [
+      "acis.hxx",
+      "api.hxx",
+      "bl_cxty.hxx",
+      "bl_inst.hxx",
+      "blnd_sec.hxx",
+      "bs2curve.hxx",
+      "bs3curve.hxx",
+      "dcl_abl.h",
+      "var_rad.hxx"
+    ],
+    "inheritance": []
+  },
+  {
+    "file": "abl_utl.hxx",
+    "path": "include/abl_utl.hxx",
+    "file_type": "header",
+    "stats": {
+      "function_count": 2,
+      "class_count": 0,
+      "struct_count": 0,
+      "enum_count": 0,
+      "typedef_count": 0,
+      "namespace_count": 0,
+      "include_count": 12,
+      "inheritance_count": 0
+    },
+    "functions": [
+      "set_edge_blends",
+      "smooth_edge"
+    ],
+    "classes": [],
+    "structs": [],
+    "enums": [],
+    "typedefs": [],
+    "namespaces": [],
+    "includes": [
+      "ablapi.hxx",
+      "acis.hxx",
+      "alltop.hxx",
+      "api.hxx",
+      "blnd_sec.hxx",
+      "intcurve.hxx",
+      "lists.hxx",
+      "logical.h",
+      "transfrm.hxx",
+      "v_bl_att.hxx",
+      "v_bl_spl.hxx",
+      "var_rad.hxx"
+    ],
+    "inheritance": []
+  },
+  {
+    "file": "accumulator.hxx",
+    "path": "include/accumulator.hxx",
+    "file_type": "header",
+    "stats": {
+      "function_count": 5,
+      "class_count": 1,
+      "struct_count": 0,
+      "enum_count": 0,
+      "typedef_count": 0,
+      "namespace_count": 0,
+      "include_count": 4,
+      "inheritance_count": 1
+    },
+    "functions": [
+      "can_process",
+      "clearLast",
+      "clearSize",
+      "getLast",
+      "getSize"
+    ],
+    "classes": [
+      "SizeAccumulator"
+    ],
+    "structs": [],
+    "enums": [],
+    "typedefs": [],
+    "namespaces": [],
+    "includes": [
+      "base.hxx",
+      "dcl_base.h",
+      "logical.h",
+      "vlists.hxx"
+    ],
+    "inheritance": [
+      {
+        "class": "SizeAccumulator",
+        "base": "ACIS_OBJECT"
+      }
+    ]
+  },
+  {
+    "file": "acexit.hxx",
+    "path": "include/acexit.hxx",
+    "file_type": "header",
+    "stats": {
+      "function_count": 3,
+      "class_count": 2,
+      "struct_count": 0,
+      "enum_count": 0,
+      "typedef_count": 0,
+      "namespace_count": 0,
+      "include_count": 4,
+      "inheritance_count": 2
+    },
+    "functions": [
+      "add_acis_exit_cb",
+      "execute",
+      "remove_acis_exit_cb"
+    ],
+    "classes": [
+      "exit_callback",
+      "exit_callback_list"
+    ],
+    "structs": [],
+    "enums": [],
+    "typedefs": [],
+    "namespaces": [],
+    "includes": [
+      "base.hxx",
+      "dcl_base.h",
+      "logical.h",
+      "tlkit_cb.hxx"
+    ],
+    "inheritance": [
+      {
+        "class": "exit_callback",
+        "base": "toolkit_callback"
+      },
+      {
+        "class": "exit_callback_list",
+        "base": "toolkit_callback_list"
+      }
+    ]
+  },
+  {
+    "file": "acinput.hxx",
+    "path": "include/acinput.hxx",
+    "file_type": "header",
+    "stats": {
+      "function_count": 9,
+      "class_count": 2,
+      "struct_count": 0,
+      "enum_count": 0,
+      "typedef_count": 0,
+      "namespace_count": 0,
+      "include_count": 3,
+      "inheritance_count": 2
+    },
+    "functions": [
+      "add",
+      "add_acis_input_cb",
+      "append",
+      "do_clearerr",
+      "do_feof",
+      "do_ferror",
+      "do_getc",
+      "do_ungetc",
+      "remove_acis_input_cb"
+    ],
+    "classes": [
+      "input_callback",
+      "input_callback_list"
+    ],
+    "structs": [],
+    "enums": [],
+    "typedefs": [],
+    "namespaces": [],
+    "includes": [
+      "base.hxx",
+      "dcl_base.h",
+      "tlkit_cb.hxx"
+    ],
+    "inheritance": [
+      {
+        "class": "input_callback",
+        "base": "toolkit_callback"
+      },
+      {
+        "class": "input_callback_list",
+        "base": "toolkit_callback_list"
+      }
+    ]
+  }
+]

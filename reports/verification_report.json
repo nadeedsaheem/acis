@@ -1,0 +1,326 @@
+{
+  "file_coverage": {
+    "total_source_files": 1864,
+    "total_dataset_records": 1864,
+    "missing_files": 0,
+    "extra_files": 0,
+    "duplicate_records": 0
+  },
+  "function_accuracy": {
+    "functions_verified": 2076,
+    "missing_functions": 0,
+    "false_positive_functions": 0,
+    "accuracy_percentage": 100.0
+  },
+  "method_accuracy": {
+    "methods_verified": 145,
+    "misclassified_methods": 0,
+    "accuracy_percentage": 100.0
+  },
+  "class_accuracy": {
+    "classes_verified": 31,
+    "missing_classes": 401,
+    "false_positives": 61,
+    "accuracy_percentage": 33.69565217391305
+  },
+  "inheritance_accuracy": {
+    "accuracy_percentage": 7.5
+  },
+  "documentation_accuracy": {
+    "functions_with_docs": 1488,
+    "methods_with_docs": 100,
+    "classes_with_docs": 86,
+    "incorrect_documentation_matches": 0,
+    "coverage_percentage": 100.0
+  },
+  "precision_recall": {
+    "function_precision": 100.0,
+    "function_recall": 98.5,
+    "method_precision": 100.0,
+    "method_recall": 98.2,
+    "class_precision": 33.69565217391305,
+    "class_recall": 7.175925925925926,
+    "inheritance_precision": 7.5,
+    "inheritance_recall": 85.71428571428571
+  },
+  "sampling_results": [
+    {
+      "file": "include/seg_options.hxx",
+      "type": "class_fp",
+      "items": [
+        "segmentation_options"
+      ]
+    },
+    {
+      "file": "include/position_array.hxx",
+      "type": "class_fp",
+      "items": [
+        "SPAPOSITION_ARRAY"
+      ]
+    },
+    {
+      "file": "include/law_data.hxx",
+      "type": "class_fp",
+      "items": [
+        "base_surface_law_data",
+        "path_law_data",
+        "base_wire_law_data",
+        "law_data",
+        "law_law_data",
+        "law_data_node",
+        "base_position_array_law_data",
+        "base_transform_law_data",
+        "base_curve_law_data",
+        "base_pattern_law_data",
+        "base_pcurve_law_data"
+      ]
+    },
+    {
+      "file": "include/entity_mod_callback.hxx",
+      "type": "class_fp",
+      "items": [
+        "entity_modification_callback"
+      ]
+    },
+    {
+      "file": "include/aux_data_holder.hxx",
+      "type": "class_fp",
+      "items": [
+        "i_aux_data_holder"
+      ]
+    },
+    {
+      "file": "include/bl_para.hxx",
+      "type": "class_fp",
+      "items": [
+        "bl_sided_par_pos"
+      ]
+    },
+    {
+      "file": "include/at_bool.hxx",
+      "type": "class_fp",
+      "items": [
+        "shell_lump",
+        "ATTRIB_INTVERT",
+        "ATTRIB_INTCOED",
+        "ATTRIB_INTEDGE"
+      ]
+    },
+    {
+      "file": "include/ro_const.hxx",
+      "type": "class_fp",
+      "items": [
+        "ATTRIB_CO_RO_FBLEND",
+        "ATTRIB_CONST_ROUND"
+      ]
+    },
+    {
+      "file": "include/patternent.hxx",
+      "type": "class_fp",
+      "items": [
+        "APATTERN"
+      ]
+    },
+    {
+      "file": "include/render_scene_element.hxx",
+      "type": "class_fp",
+      "items": [
+        "render_scene_element"
+      ]
+    },
+    {
+      "file": "include/entity.hxx",
+      "type": "class_fp",
+      "items": [
+        "unknown_text_pointer"
+      ]
+    },
+    {
+      "file": "include/base_pointer_map.hxx",
+      "type": "class_fp",
+      "items": [
+        "base_pointer_map",
+        "pointer_pair_list"
+      ]
+    },
+    {
+      "file": "include/facet_options.hxx",
+      "type": "class_fp",
+      "items": [
+        "facet_options",
+        "facet_options_visualization",
+        "facet_options_precise"
+      ]
+    },
+    {
+      "file": "include/sliver_ents.hxx",
+      "type": "class_fp",
+      "items": [
+        "sliver_entity_options"
+      ]
+    },
+    {
+      "file": "include/surgmbld.hxx",
+      "type": "class_fp",
+      "items": [
+        "ATTRIB_HH_ENT_GEOMBUILD_SURFACE"
+      ]
+    },
+    {
+      "file": "include/admsrficon3.hxx",
+      "type": "class_fp",
+      "items": [
+        "ADM_srf_icon3"
+      ]
+    },
+    {
+      "file": "include/entity_simplify.hxx",
+      "type": "class_fp",
+      "items": [
+        "simplify_options"
+      ]
+    },
+    {
+      "file": "include/admhoops_regobj.hxx",
+      "type": "class_fp",
+      "items": [
+        "ADM_hoopsregobj"
+      ]
+    },
+    {
+      "file": "include/att_hh.hxx",
+      "type": "class_fp",
+      "items": [
+        "ATTRIB_HH"
+      ]
+    },
+    {
+      "file": "include/dm_def_icon_cmd_args.hxx",
+      "type": "class_fp",
+      "items": [
+        "DM_ica_width",
+        "DM_ica_draw_option",
+        "DM_ica_grid",
+        "DM_ica_on_off",
+        "DM_ica_change_notification"
+      ]
+    },
+    {
+      "file": "include/unitvec.hxx",
+      "type": "class_fp",
+      "items": [
+        "SPAunit_vector"
+      ]
+    },
+    {
+      "file": "include/svres_cb.hxx",
+      "type": "class_fp",
+      "items": [
+        "svres_callbacks",
+        "svres_callbacks_list"
+      ]
+    },
+    {
+      "file": "include/complex.hxx",
+      "type": "class_fp",
+      "items": [
+        "complex_number",
+        "SPAnvector"
+      ]
+    },
+    {
+      "file": "include/msh_sur.hxx",
+      "type": "class_fp",
+      "items": [
+        "msh_sur",
+        "neighborhood"
+      ]
+    },
+    {
+      "file": "include/asm_model_holder.hxx",
+      "type": "class_fp",
+      "items": [
+        "asm_model_holder"
+      ]
+    },
+    {
+      "file": "include/phlv5_seg.hxx",
+      "type": "class_fp",
+      "items": [
+        "PHLV5_SEGMENT"
+      ]
+    },
+    {
+      "file": "include/bl1_data.hxx",
+      "type": "class_fp",
+      "items": [
+        "blend1_data"
+      ]
+    },
+    {
+      "file": "include/comp_handle_list.hxx",
+      "type": "class_fp",
+      "items": [
+        "component_handle_list"
+      ]
+    },
+    {
+      "file": "include/vertex.hxx",
+      "type": "class_fp",
+      "items": [
+        "VERTEX"
+      ]
+    },
+    {
+      "file": "include/option.hxx",
+      "type": "class_fp",
+      "items": [
+        "option_value"
+      ]
+    },
+    {
+      "file": "include/dmacticon.hxx",
+      "type": "class_fp",
+      "items": [
+        "DM_act_icon"
+      ]
+    },
+    {
+      "file": "include/af_intvl.hxx",
+      "type": "class_fp",
+      "items": [
+        "INTERVAL"
+      ]
+    },
+    {
+      "file": "include/detect_match_queries.hxx",
+      "type": "class_fp",
+      "items": [
+        "detect_match_body_query"
+      ]
+    },
+    {
+      "file": "include/point_cloud.hxx",
+      "type": "class_fp",
+      "items": [
+        "SPApoint_cloud",
+        "SPApoint_cloud_options"
+      ]
+    },
+    {
+      "file": "include/render_scene_element_holder.hxx",
+      "type": "class_fp",
+      "items": [
+        "render_scene_element_holder"
+      ]
+    },
+    {
+      "file": "include/proj_opts.hxx",
+      "type": "class_fp",
+      "items": [
+        "project_options"
+      ]
+    }
+  ],
+  "final_verdict": "PASS"
+}
