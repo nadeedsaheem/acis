@@ -11,7 +11,7 @@
 ## 2. Response Contract Standardization
 
 - **Status Code:** 200
-- **Response Keys:** ['query', 'status', 'answer', 'formatted_answer', 'summary', 'sections', 'sources', 'retrieval_time', 'generation_time', 'total_time']
+- **Response Keys:** ['query', 'status', 'answer', 'sources', 'retrieval_time', 'generation_time', 'total_time']
 - **Source Fields:** ['entity_type', 'entity_name', 'repository', 'score']
 
 ## 3. Repository Validation Layer

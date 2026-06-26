@@ -792,7 +792,7 @@ class KnowledgeGraphBuilder:
             WITH row, coalesce(fn, m) AS parent
             WHERE parent IS NOT NULL
             
-            CALL {
+            CALL (row, parent) {
                 WITH row, parent
                 WITH row, parent WHERE row.target_type = 'PrimitiveType'
                 MATCH (t:PrimitiveType {name: row.name})
@@ -912,7 +912,7 @@ class KnowledgeGraphBuilder:
                 d.entity_type = row.entity_type, d.entity_name = row.entity_name, 
                 d.file_path = row.file_path
             WITH row, d
-            CALL {
+            CALL (row, d) {
                 WITH row, d
                 WITH row, d WHERE row.parent_label = 'Class'
                 MATCH (e:Class {id: row.parent_id})

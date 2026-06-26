@@ -15,6 +15,9 @@ class QueryResponse(BaseModel):
     query: str
     status: str = "success"
     answer: str
+    formatted_answer: Optional[str] = None
+    summary: Optional[str] = None
+    sections: Optional[dict] = None
     sources: List[Source]
     retrieval_time: float
     generation_time: float

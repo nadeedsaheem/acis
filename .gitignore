@@ -1,2 +1,5 @@
-
 ACIS/
+__pycache__/
+*.pyc
+.env
+gmni.env

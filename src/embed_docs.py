@@ -99,7 +99,7 @@ class SemanticRetriever:
         
         search_query = """
         // 1. Vector Search
-        CALL {
+        CALL () {
             MATCH (d:Documentation)
             SEARCH d IN (VECTOR INDEX documentation_embedding_index FOR $embedding LIMIT $top_k)
             SCORE AS score
@@ -164,7 +164,7 @@ class SemanticRetriever:
             RETURN {} AS context
         }
         
-        RETURN score, label AS entity_type, coalesce(e.name, '') AS entity_name, coalesce(d.text, '') AS documentation, context
+        RETURN score, label AS entity_type, e.id AS entity_id, coalesce(e.name, '') AS entity_name, coalesce(d.text, '') AS documentation, context
         ORDER BY score DESC
         """
         
@@ -176,6 +176,7 @@ class SemanticRetriever:
             results.append({
                 "score": r['score'],
                 "entity_type": r['entity_type'],
+                "entity_id": r['entity_id'],
                 "entity_name": r['entity_name'],
                 "documentation": r['documentation'],
                 "context": r['context']

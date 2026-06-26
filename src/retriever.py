@@ -137,6 +137,7 @@ class KnowledgeGraphRetriever:
                 
                 result_obj = {
                     "entity_type": label,
+                    "entity_id": node_id,
                     "name": node.get('name', ''),
                     "score": candidate['score'],
                     "documentation": doc_text
