@@ -3,6 +3,12 @@ import json
 import re
 from tree_sitter import Language, Parser
 import tree_sitter_cpp
+from namespace_tracker import get_scope_stack, resolve_fqn
+from compilation_database import CompilationDatabase
+from include_resolver import IncludeResolver
+from macro_registry import MacroRegistry
+from conditional_evaluator import evaluate_condition
+
 
 # ==================================================
 # CONFIG
@@ -66,11 +72,19 @@ BLACKLISTED_NAMES = {
 # PARSE SINGLE FILE
 # ==================================================
 
-def parse_file(file_path):
+def parse_file(file_path, macro_registry=None, include_resolver=None, build_config_info=None):
+    if macro_registry is None:
+        macro_registry = MacroRegistry()
+    if include_resolver is None:
+        include_resolver = IncludeResolver(repo_root=REPO_ROOT)
+        
     with open(file_path, "rb") as f:
         code = f.read()
 
     tree = parser.parse(code)
+
+    from call_extractor import CallExtractor
+    call_extractor = CallExtractor()
 
     classes = {}
     structs = {}
@@ -413,15 +427,121 @@ def parse_file(file_path):
 
     def walk(node):
         # ==========================================
+        # PREPROCESSOR CONDITIONALS
+        # ==========================================
+        if node.type == "preproc_ifdef":
+            first_child = node.children[0]
+            is_ifdef = (first_child.type == "#ifdef")
+            
+            macro_name = ""
+            for child in node.children:
+                if child.type == "identifier":
+                    macro_name = text(child).strip()
+                    break
+                    
+            is_active = False
+            if macro_name:
+                defined = macro_registry.is_defined(macro_name)
+                is_active = defined if is_ifdef else not defined
+                
+            if is_active:
+                for child in node.children:
+                    if child.type not in ("#ifdef", "#ifndef", "#endif", "identifier", "preproc_else", "preproc_elif"):
+                        walk(child)
+            else:
+                for child in node.children:
+                    if child.type in ("preproc_else", "preproc_elif"):
+                        walk(child)
+            return
+            
+        elif node.type == "preproc_if":
+            condition_node = None
+            for child in node.children:
+                if child.type not in ("#if", "\n"):
+                    condition_node = child
+                    break
+                    
+            is_active = False
+            if condition_node:
+                is_active = evaluate_condition(condition_node, macro_registry, code)
+                
+            if is_active:
+                for child in node.children:
+                    if child != condition_node and child.type not in ("#if", "#endif", "preproc_else", "preproc_elif"):
+                        walk(child)
+            else:
+                for child in node.children:
+                    if child.type in ("preproc_else", "preproc_elif"):
+                        walk(child)
+            return
+            
+        elif node.type == "preproc_elif":
+            condition_node = None
+            for child in node.children:
+                if child.type not in ("#elif", "\n"):
+                    condition_node = child
+                    break
+                    
+            is_active = False
+            if condition_node:
+                is_active = evaluate_condition(condition_node, macro_registry, code)
+                
+            if is_active:
+                for child in node.children:
+                    if child != condition_node and child.type not in ("#elif", "#endif", "preproc_else", "preproc_elif"):
+                        walk(child)
+            else:
+                for child in node.children:
+                    if child.type in ("preproc_else", "preproc_elif"):
+                        walk(child)
+            return
+            
+        elif node.type == "preproc_else":
+            for child in node.children:
+                if child.type != "#else":
+                    walk(child)
+            return
+
+        elif node.type == "preproc_def":
+            if len(node.children) >= 2 and node.children[1].type == "identifier":
+                m_name = text(node.children[1]).strip()
+                m_val = "1"
+                if len(node.children) >= 3 and node.children[2].type == "preproc_arg":
+                    m_val = text(node.children[2]).strip()
+                macro_registry.define(m_name, m_val)
+                
+        elif node.type == "preproc_call":
+            if len(node.children) >= 2 and node.children[0].type == "preproc_directive":
+                directive = text(node.children[0]).strip()
+                if directive == "#undef":
+                    m_name = text(node.children[1]).strip()
+                    macro_registry.undefine(m_name)
+
+        # ==========================================
         # INCLUDES
         # ==========================================
-        if node.type == "preproc_include":
+        elif node.type == "preproc_include":
             include_text = text(node)
+            is_angled = '<' in include_text
+            target = None
             if '"' in include_text:
                 try:
-                    includes.add(include_text.split('"')[1])
+                    target = include_text.split('"')[1]
                 except:
                     pass
+            elif '<' in include_text and '>' in include_text:
+                try:
+                    target = include_text.split('<')[1].split('>')[0]
+                except:
+                    pass
+            
+            if target:
+                resolved = include_resolver.resolve(target, file_path, is_angled)
+                if resolved:
+                    rel_inc = os.path.relpath(resolved, REPO_ROOT).replace("\\", "/")
+                    includes.add(rel_inc)
+                else:
+                    includes.add(target)
 
         # ==========================================
         # NAMESPACES
@@ -512,8 +632,17 @@ def parse_file(file_path):
 
                     if class_name:
                         doc = get_closest_comment(node.start_point[0] + 1)
-                        if class_name not in classes or not classes[class_name].get("documentation"):
-                            classes[class_name] = {"name": class_name, "documentation": doc, "line_number": node.start_point[0] + 1}
+                        ns_stack, parent_classes = get_scope_stack(node, text)
+                        class_fqn = resolve_fqn(class_name, ns_stack, parent_classes)
+                        if class_fqn not in classes or not classes[class_fqn].get("documentation"):
+                            classes[class_fqn] = {
+                                "name": class_name,
+                                "fqn": class_fqn,
+                                "namespaces": ns_stack,
+                                "parent_classes": parent_classes,
+                                "documentation": doc,
+                                "line_number": node.start_point[0] + 1
+                            }
 
                         # Extract base classes safely
                         base_classes = []
@@ -542,6 +671,7 @@ def parse_file(file_path):
                         for base_class, is_template in base_classes:
                             inheritance.append({
                                 "class": class_name,
+                                "class_fqn": class_fqn,
                                 "base": base_class,
                                 "is_template": is_template
                             })
@@ -561,11 +691,21 @@ def parse_file(file_path):
                             class_name = text(args[0]).strip()
                             if class_name:
                                 doc = get_closest_comment(node.start_point[0] + 1)
-                                if class_name not in classes or not classes[class_name].get("documentation"):
-                                    classes[class_name] = {"name": class_name, "documentation": doc, "line_number": node.start_point[0] + 1}
+                                ns_stack, parent_classes = get_scope_stack(node, text)
+                                class_fqn = resolve_fqn(class_name, ns_stack, parent_classes)
+                                if class_fqn not in classes or not classes[class_fqn].get("documentation"):
+                                    classes[class_fqn] = {
+                                        "name": class_name,
+                                        "fqn": class_fqn,
+                                        "namespaces": ns_stack,
+                                        "parent_classes": parent_classes,
+                                        "documentation": doc,
+                                        "line_number": node.start_point[0] + 1
+                                    }
                                 base_class = "ATTRIB" if fn_name == "MASTER_ATTRIB_DECL" else "ENTITY"
                                 inheritance.append({
                                     "class": class_name,
+                                    "class_fqn": class_fqn,
                                     "base": base_class,
                                     "is_template": False
                                 })
@@ -581,8 +721,17 @@ def parse_file(file_path):
             if type_ids:
                 s_name = type_ids[-1]
                 doc = get_closest_comment(node.start_point[0] + 1)
-                if s_name not in structs or not structs[s_name].get("documentation"):
-                    structs[s_name] = {"name": s_name, "documentation": doc, "line_number": node.start_point[0] + 1}
+                ns_stack, parent_classes = get_scope_stack(node, text)
+                s_fqn = resolve_fqn(s_name, ns_stack, parent_classes)
+                if s_fqn not in structs or not structs[s_fqn].get("documentation"):
+                    structs[s_fqn] = {
+                        "name": s_name,
+                        "fqn": s_fqn,
+                        "namespaces": ns_stack,
+                        "parent_classes": parent_classes,
+                        "documentation": doc,
+                        "line_number": node.start_point[0] + 1
+                    }
 
         # ==========================================
         # ENUMS
@@ -601,8 +750,18 @@ def parse_file(file_path):
                                 e_values.append(text(name_node))
             if e_name:
                 doc = get_closest_comment(node.start_point[0] + 1)
-                if e_name not in enums or not enums[e_name].get("documentation"):
-                    enums[e_name] = {"name": e_name, "documentation": doc, "line_number": node.start_point[0] + 1, "values": e_values}
+                ns_stack, parent_classes = get_scope_stack(node, text)
+                e_fqn = resolve_fqn(e_name, ns_stack, parent_classes)
+                if e_fqn not in enums or not enums[e_fqn].get("documentation"):
+                    enums[e_fqn] = {
+                        "name": e_name,
+                        "fqn": e_fqn,
+                        "namespaces": ns_stack,
+                        "parent_classes": parent_classes,
+                        "documentation": doc,
+                        "line_number": node.start_point[0] + 1,
+                        "values": e_values
+                    }
 
         # ==========================================
         # TYPEDEFS
@@ -624,8 +783,17 @@ def parse_file(file_path):
                     alias_name = text(alias_node).strip()
                     if alias_name:
                         doc = get_closest_comment(node.start_point[0] + 1)
-                        if alias_name not in typedefs or not typedefs[alias_name].get("documentation"):
-                            typedefs[alias_name] = {"name": alias_name, "documentation": doc, "line_number": node.start_point[0] + 1}
+                        ns_stack, parent_classes = get_scope_stack(node, text)
+                        t_fqn = resolve_fqn(alias_name, ns_stack, parent_classes)
+                        if t_fqn not in typedefs or not typedefs[t_fqn].get("documentation"):
+                            typedefs[t_fqn] = {
+                                "name": alias_name,
+                                "fqn": t_fqn,
+                                "namespaces": ns_stack,
+                                "parent_classes": parent_classes,
+                                "documentation": doc,
+                                "line_number": node.start_point[0] + 1
+                            }
 
         # ==========================================
         # FUNCTION DECLARATIONS & DEFINITIONS
@@ -706,12 +874,34 @@ def parse_file(file_path):
                                         is_pure = True
                                         break
 
+                            ns_stack, parent_classes = get_scope_stack(node, text)
+                            extracted_calls = []
+                            if node.parent and node.parent.type == "function_definition":
+                                if class_owner:
+                                    caller_fqn_guess = f"{class_owner}::{fn_name}"
+                                else:
+                                    scope_str = "::".join(ns_stack)
+                                    caller_fqn_guess = f"{scope_str}::{fn_name}" if scope_str else fn_name
+                                try:
+                                    extracted_calls = call_extractor.extract_calls(
+                                        node.parent,
+                                        code,
+                                        caller_fqn_guess,
+                                        class_owner,
+                                        ns_stack,
+                                        parent_classes
+                                    )
+                                except Exception as e:
+                                    print(f"Error extracting calls: {e}")
+
                             temp_functions.append({
                                 "name": fn_name,
                                 "return_type": ret_type,
                                 "parameters": params,
                                 "is_method": is_method,
                                 "class_owner": class_owner,
+                                "namespaces": ns_stack,
+                                "parent_classes": parent_classes,
                                 "namespace_owner": ns_owner,
                                 "access": access,
                                 "is_virtual": is_virtual,
@@ -720,7 +910,8 @@ def parse_file(file_path):
                                 "is_const": is_const,
                                 "is_pure_virtual": is_pure,
                                 "line_number": node.start_point[0] + 1,
-                                "documentation": get_closest_comment(node.start_point[0] + 1)
+                                "documentation": get_closest_comment(node.start_point[0] + 1),
+                                "calls": extracted_calls
                             })
 
         for child in node.children:
@@ -751,6 +942,7 @@ def parse_file(file_path):
     return {
         "file": os.path.basename(file_path),
         "path": rel_path,
+        "build_configuration": build_config_info,
         "classes": sorted(list(classes.values()), key=lambda x: x["name"]),
         "structs": sorted(list(structs.values()), key=lambda x: x["name"]),
         "enums": sorted(list(enums.values()), key=lambda x: x["name"]),
@@ -766,11 +958,38 @@ def parse_file(file_path):
 # REPOSITORY WALKER
 # ==================================================
 
+import argparse
+# Setup CLI args
+parser_cli = argparse.ArgumentParser(description="Compiler-aware C++ ingestion parser.")
+parser_cli.add_argument("--compilation-db", default=None, help="Path to compile_commands.json database.")
+parser_cli.add_argument("--config", default="Default", help="Active configuration name.")
+parser_cli.add_argument("--repo-root", default=None, help="Override repository root path.")
+
+args, _ = parser_cli.parse_known_args()
+
+if args.repo_root:
+    REPO_ROOT = os.path.abspath(args.repo_root).replace("\\", "/")
+
+compilation_db_path = None
+active_config_name = args.config
+if args.compilation_db:
+    compilation_db_path = os.path.abspath(args.compilation_db).replace("\\", "/")
+
+compilation_db = None
+if compilation_db_path and os.path.exists(compilation_db_path):
+    print(f"Loading compilation database: {compilation_db_path} (Configuration: {active_config_name})")
+    compilation_db = CompilationDatabase(compilation_db_path)
+else:
+    print("No compilation database specified or file not found. Running in Legacy Parser Mode.")
+
+# Build global IncludeResolver file cache (pre-scans the repository for fallback include mapping)
+global_include_resolver = IncludeResolver(repo_root=REPO_ROOT)
+
 # 1. Pre-scan to find total matching files for progress percentage
 print("Pre-scanning repository to count files...")
 files_to_parse = []
-include_dir = os.path.join(REPO_ROOT, "include")
-for root, dirs, files in os.walk(include_dir):
+for root, dirs, files in os.walk(REPO_ROOT):
+    dirs[:] = [d for d in dirs if not d.startswith('.') and d.lower() not in ('build', 'out', 'bin', 'node_modules', 'venv', '.git', 'archive')]
     for file in files:
         ext = os.path.splitext(file)[1].lower()
         if ext in VALID_EXTENSIONS:
@@ -813,7 +1032,34 @@ with open(temp_jsonl_file, "a", encoding="utf-8") as jsonl_f:
     for file_path in files_to_parse:
         file_name = os.path.basename(file_path)
         try:
-            parsed = parse_file(file_path)
+            # 3. Resolve compiler flags for this file
+            file_macros = {}
+            file_includes = []
+            compiler_std = None
+            compiler_name = None
+            build_config_info = None
+            
+            if compilation_db:
+                info = compilation_db.get_info(file_path)
+                if info:
+                    flags = compilation_db.extract_flags(info)
+                    file_macros = flags["macros"]
+                    file_includes = flags["includes"]
+                    compiler_std = flags["std"]
+                    compiler_name = flags["compiler"]
+                    build_config_info = {
+                        "name": active_config_name,
+                        "compiler": compiler_name or "unknown",
+                        "standard": compiler_std or "unknown",
+                        "flags": info["arguments"]
+                    }
+                    
+            macro_reg = MacroRegistry(file_macros)
+            inc_resolver = IncludeResolver(file_includes, REPO_ROOT)
+            # Seed the resolver's file cache with pre-scanned files
+            inc_resolver.file_cache = global_include_resolver.file_cache
+            
+            parsed = parse_file(file_path, macro_reg, inc_resolver, build_config_info)
             
             # Write to JSONL immediately
             jsonl_f.write(json.dumps(parsed, ensure_ascii=False) + "\n")
@@ -904,20 +1150,17 @@ def resolve_qualified_scope(class_owner_raw, ns_owner_raw, global_classes_and_st
 
 # If we parsed anything, compile and enrich the final all_entities.json
 if os.path.exists(temp_jsonl_file):
-    print("\nPhase 1: Compiling global class and namespace indexes for refinement...")
-    global_classes = set()
-    global_structs = set()
-    global_namespaces = set()
+    print("\nPhase 1: Compiling global FQN resolver index...")
+    from fqn_resolver import FQNResolver
     
+    parsed_items = []
     with open(temp_jsonl_file, "r", encoding="utf-8") as jsonl_f:
         for line in jsonl_f:
             if line.strip():
-                item = json.loads(line)
-                global_classes.update(c["name"] for c in item.get("classes", []))
-                global_structs.update(s["name"] for s in item.get("structs", []))
-                global_namespaces.update(ns["name"] for ns in item.get("namespaces", []))
+                parsed_items.append(json.loads(line))
                 
-    global_classes_and_structs = global_classes.union(global_structs)
+    resolver = FQNResolver()
+    resolver.build_index(parsed_items)
 
     # Re-initialize global statistics for exact post-processed reporting
     global_stats = {
@@ -934,107 +1177,187 @@ if os.path.exists(temp_jsonl_file):
         "failed_files_count": len(failed_files)
     }
 
-    print("Phase 2: Compiling final enriched and resolved all_entities.json...")
+    print("Phase 2: Compiling final enriched and resolved code_base.json...")
     with open(output_file, "w", encoding="utf-8") as f_out:
         f_out.write("[\n")
         first = True
-        with open(temp_jsonl_file, "r", encoding="utf-8") as jsonl_f:
-            for line in jsonl_f:
-                if line.strip():
-                    if not first:
-                        f_out.write(",\n")
+        for parsed_line in parsed_items:
+            if not first:
+                f_out.write(",\n")
+            
+            # Clean up inheritance edges globally with FQN resolution
+            final_inheritance = []
+            for inh in parsed_line.get("inheritance", []):
+                child_fqn = inh.get("class_fqn")
+                base_class = inh.get("base")
+                child_parts = child_fqn.split("::")[:-1] if child_fqn else []
+                
+                resolved_base_fqn = resolver.resolve_type_fqn(base_class, child_parts, [])
+                final_inheritance.append({
+                    "class": inh.get("class"),
+                    "class_fqn": child_fqn,
+                    "base": base_class,
+                    "base_fqn": resolved_base_fqn,
+                    "is_template": inh.get("is_template", False)
+                })
+
+            # Resolve function vs method classification globally
+            resolved_functions = []
+            resolved_methods = []
+
+            def normalize_name(name):
+                if name and name.startswith("operator"):
+                    s = name[8:].strip()
+                    if not s: return name
+                    if s.startswith("new") or s.startswith("delete"):
+                        return "operator " + s.replace(" ", "").replace("\t", "")
+                    if not s[0].isalpha():
+                        return "operator" + s.replace(" ", "").replace("\t", "")
+                    return "operator " + re.sub(r'\s+', ' ', s)
+                return name
+
+            def process_fn(fn):
+                class_owner = fn.get("class_owner")
+                is_meth = fn.get("is_method", False)
+                namespaces = fn.get("namespaces", [])
+                parent_classes = fn.get("parent_classes", [])
+                
+                if is_meth and not class_owner:
+                    is_meth = False
                     
-                    parsed_line = json.loads(line)
+                doc = fn.get("documentation")
+                if doc is None: doc = ""
+                
+                name = normalize_name(fn.get("name"))
+                
+                # Resolve parameter types FQNs
+                resolved_params = []
+                for p in fn.get("parameters", []):
+                    p_type = p.get("type", "")
+                    p_name = p.get("name", "")
+                    resolved_type_fqn = resolver.resolve_type_fqn(p_type, namespaces, parent_classes)
+                    resolved_params.append({
+                        "name": p_name,
+                        "type": p_type,
+                        "type_fqn": resolved_type_fqn
+                    })
                     
-                    # Clean up inheritance edges globally (Priority 4)
-                    final_inheritance = []
-                    for inh in parsed_line.get("inheritance", []):
-                        final_inheritance.append({
-                            "class": inh.get("class"),
-                            "base": inh.get("base")
-                        })
+                # Resolve return type FQN
+                ret_type = fn.get("return_type", "")
+                resolved_ret_fqn = resolver.resolve_type_fqn(ret_type, namespaces, parent_classes)
+                
+                if is_meth:
+                    class_fqn = resolve_fqn(class_owner, namespaces, parent_classes)
+                    method_fqn = f"{class_fqn}::{name}"
+                    resolved_methods.append({
+                        "class": class_owner,
+                        "class_fqn": class_fqn,
+                        "name": name,
+                        "fqn": method_fqn,
+                        "return_type": ret_type,
+                        "return_type_fqn": resolved_ret_fqn,
+                        "parameters": resolved_params,
+                        "line_number": fn.get("line_number", 0),
+                        "documentation": doc
+                    })
+                    func_fqn = None
+                else:
+                    func_fqn = resolve_fqn(name, namespaces, parent_classes)
+                    resolved_functions.append({
+                        "name": name,
+                        "fqn": func_fqn,
+                        "return_type": ret_type,
+                        "return_type_fqn": resolved_ret_fqn,
+                        "parameters": resolved_params,
+                        "line_number": fn.get("line_number", 0),
+                        "documentation": doc
+                    })
+                    class_fqn = None
 
-                    # Resolve function vs method classification globally
-                    resolved_functions = []
-                    resolved_methods = []
-
-                    def normalize_name(name):
-                        if name and name.startswith("operator"):
-                            s = name[8:].strip()
-                            if not s: return name
-                            if s.startswith("new") or s.startswith("delete"):
-                                return "operator " + s.replace(" ", "").replace("\t", "")
-                            if not s[0].isalpha():
-                                return "operator" + s.replace(" ", "").replace("\t", "")
-                            return "operator " + re.sub(r'\s+', ' ', s)
-                        return name
-
-                    def process_fn(fn):
-                        class_owner = fn.get("class_owner")
-                        is_meth = fn.get("is_method", False)
-                        
-                        if is_meth and not class_owner:
-                            is_meth = False
-                            
-                        doc = fn.get("documentation")
-                        if doc is None: doc = ""
-                        
-                        name = normalize_name(fn.get("name"))
-                        
+                # Resolve calls
+                for call in fn.get("calls", []):
+                    callee_name = call["callee_name"]
+                    kind = call["kind"]
+                    callee_fqn = call["callee_fqn"]
+                    
+                    # Update caller FQN
+                    caller_fqn = method_fqn if is_meth else func_fqn
+                    call["caller"] = caller_fqn
+                    
+                    # Resolve callee FQN using global resolver
+                    if kind == "member" and "unresolved" not in callee_fqn:
+                        parts = callee_fqn.split("::")
+                        obj_type = parts[0]
+                        resolved_class_fqn = resolver.resolve_type_fqn(obj_type, namespaces, parent_classes)
+                        call["callee_fqn"] = f"{resolved_class_fqn}::{callee_name}"
+                    elif kind == "qualified" and "unresolved" not in callee_fqn:
+                        parts = callee_fqn.split("::")
+                        scope_name = parts[0]
+                        resolved_scope_fqn = resolver.resolve_type_fqn(scope_name, namespaces, parent_classes)
+                        call["callee_fqn"] = f"{resolved_scope_fqn}::{callee_name}"
+                    elif kind == "direct":
                         if is_meth:
-                            resolved_methods.append({
-                                "class": class_owner,
-                                "name": name,
-                                "return_type": fn.get("return_type", ""),
-                                "parameters": fn.get("parameters", []),
-                                "line_number": fn.get("line_number", 0),
-                                "documentation": doc
-                            })
+                            call["callee_fqn"] = f"{class_fqn}::{callee_name}"
                         else:
-                            resolved_functions.append({
-                                "name": name,
-                                "return_type": fn.get("return_type", ""),
-                                "parameters": fn.get("parameters", []),
-                                "line_number": fn.get("line_number", 0),
-                                "documentation": doc
-                            })
+                            scope_str = "::".join(namespaces)
+                            if scope_str:
+                                call["callee_fqn"] = f"{scope_str}::{callee_name}"
+                            else:
+                                call["callee_fqn"] = callee_name
+                                
+                    # Suffix lookup fallback if unresolved or has no namespace/class qualification
+                    if "unresolved" in call["callee_fqn"] or "::" not in call["callee_fqn"]:
+                        short_name = callee_name
+                        candidates = resolver.resolve_type_fqn(short_name, namespaces, parent_classes)
+                        if candidates and "unresolved" not in candidates:
+                            call["callee_fqn"] = candidates
+                        else:
+                            cand_list = resolver.resolve_query_short_name(short_name)
+                            if cand_list and len(cand_list) == 1:
+                                call["callee_fqn"] = cand_list[0]
+                                
+                    file_calls.append(call)
 
-                    for fn in parsed_line.get("functions", []):
-                        process_fn(fn)
+            file_calls = []
 
-                    for m in parsed_line.get("methods", []):
-                        process_fn(m)
+            for fn in parsed_line.get("functions", []):
+                process_fn(fn)
 
-                    # Enforce strictly the final canonical schema
-                    parsed_line = {
-                        "file": parsed_line.get("file", ""),
-                        "path": parsed_line.get("path", ""),
-                        "includes": parsed_line.get("includes", []),
-                        "classes": parsed_line.get("classes", []),
-                        "structs": parsed_line.get("structs", []),
-                        "enums": parsed_line.get("enums", []),
-                        "typedefs": parsed_line.get("typedefs", []),
-                        "namespaces": parsed_line.get("namespaces", []),
-                        "functions": resolved_functions,
-                        "methods": resolved_methods,
-                        "inheritance": final_inheritance
-                    }
+            for m in parsed_line.get("methods", []):
+                process_fn(m)
 
-                    # Update global stats
-                    global_stats["total_files_parsed"] += 1
-                    global_stats["total_functions"] += len(resolved_functions)
-                    global_stats["total_methods"] += len(resolved_methods)
-                    global_stats["total_classes"] += len(parsed_line.get("classes", []))
-                    global_stats["total_structs"] += len(parsed_line.get("structs", []))
-                    global_stats["total_namespaces"] += len(parsed_line.get("namespaces", []))
-                    global_stats["total_includes"] += len(parsed_line.get("includes", []))
-                    global_stats["total_enums"] += len(parsed_line.get("enums", []))
-                    global_stats["total_typedefs"] += len(parsed_line.get("typedefs", []))
-                    global_stats["total_inheritance_edges"] += len(parsed_line.get("inheritance", []))
+            # Enforce strictly the final canonical schema
+            parsed_line = {
+                "file": parsed_line.get("file", ""),
+                "path": parsed_line.get("path", ""),
+                "build_configuration": parsed_line.get("build_configuration", None),
+                "includes": parsed_line.get("includes", []),
+                "classes": parsed_line.get("classes", []),
+                "structs": parsed_line.get("structs", []),
+                "enums": parsed_line.get("enums", []),
+                "typedefs": parsed_line.get("typedefs", []),
+                "namespaces": parsed_line.get("namespaces", []),
+                "functions": resolved_functions,
+                "methods": resolved_methods,
+                "inheritance": final_inheritance,
+                "calls": file_calls
+            }
 
-                    formatted_item = indent_string(json.dumps(parsed_line, indent=2, ensure_ascii=False))
-                    f_out.write(formatted_item)
-                    first = False
+            # Update global stats
+            global_stats["total_files_parsed"] += 1
+            global_stats["total_functions"] += len(resolved_functions)
+            global_stats["total_methods"] += len(resolved_methods)
+            global_stats["total_classes"] += len(parsed_line.get("classes", []))
+            global_stats["total_structs"] += len(parsed_line.get("structs", []))
+            global_stats["total_namespaces"] += len(parsed_line.get("namespaces", []))
+            global_stats["total_includes"] += len(parsed_line.get("includes", []))
+            global_stats["total_enums"] += len(parsed_line.get("enums", []))
+            global_stats["total_typedefs"] += len(parsed_line.get("typedefs", []))
+            global_stats["total_inheritance_edges"] += len(parsed_line.get("inheritance", []))
+
+            formatted_item = indent_string(json.dumps(parsed_line, indent=2, ensure_ascii=False))
+            f_out.write(formatted_item)
+            first = False
         f_out.write("\n]\n")
         
     # Clean up temp file

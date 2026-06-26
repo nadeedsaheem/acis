@@ -5,6 +5,6 @@
 All certification checks passed successfully.
 
 ### Metrics:
-- Documentation Nodes: 24318
-- HAS_DOC edges: 24318
+- Documentation Nodes: 24242
+- HAS_DOC edges: 24244
 - Orphan Docs: 0

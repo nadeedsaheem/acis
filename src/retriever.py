@@ -95,16 +95,16 @@ class KnowledgeGraphRetriever:
             t1 = time.time()
             logging.info(f"Doc query took {t1 - t0:.3f}s")
 
-            # 2. Entity Name/Signature Match
+            # 2. Entity Name/Signature/FQN Match
             entity_query = f"""
             MATCH (e)
             WHERE e:Function OR e:Method OR e:Class OR e:Struct OR e:Enum
-            WITH e, toLower(e.name) AS lname, toLower(e.signature) AS lsig
-            WHERE (lname CONTAINS $exact_query OR lsig CONTAINS $exact_query) 
+            WITH e, toLower(e.name) AS lname, toLower(e.signature) AS lsig, coalesce(toLower(e.fqn), '') AS lfqn
+            WHERE (lname CONTAINS $exact_query OR lsig CONTAINS $exact_query OR lfqn CONTAINS $exact_query) 
                OR {name_where} OR {sig_where}
             OPTIONAL MATCH (e)-[:HAS_DOC]->(d:Documentation)
             RETURN e.id AS id, labels(e)[0] AS label, e, d.text AS doc_text, 
-                   CASE WHEN (lname CONTAINS $exact_query OR lsig CONTAINS $exact_query) THEN true ELSE false END AS is_exact
+                   CASE WHEN (lname CONTAINS $exact_query OR lsig CONTAINS $exact_query OR lfqn CONTAINS $exact_query) THEN true ELSE false END AS is_exact
             """
             
             t2 = time.time()
@@ -117,6 +117,16 @@ class KnowledgeGraphRetriever:
                     score += 5  # Partial Match
                     
                 entity = r['e']
+                fqn = entity.get('fqn', '')
+                if fqn:
+                    fqn_lower = fqn.lower()
+                    if fqn_lower == query_lower:
+                        score += 30  # Exact FQN Match
+                    elif fqn_lower.endswith("::" + query_lower):
+                        score += 25  # Name matching FQN suffix
+                    elif query_lower in fqn_lower:
+                        score += 10  # Partial FQN Match
+
                 add_or_update_score(r['id'], r['label'], score, {
                     'node': dict(entity),
                     'doc_text': r['doc_text'] if r['doc_text'] is not None else ''
@@ -139,6 +149,7 @@ class KnowledgeGraphRetriever:
                     "entity_type": label,
                     "entity_id": node_id,
                     "name": node.get('name', ''),
+                    "fqn": node.get('fqn', ''),
                     "score": candidate['score'],
                     "documentation": doc_text
                 }

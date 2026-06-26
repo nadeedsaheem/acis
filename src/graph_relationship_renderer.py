@@ -31,6 +31,8 @@ def render_relationships(primary_full: dict) -> str:
     if rels.get("returns"): display_rels["Returns"] = rels["returns"]
     if rels.get("parameters"): display_rels["Parameters"] = rels["parameters"]
     if rels.get("enum_values"): display_rels["Values"] = rels["enum_values"]
+    if rels.get("calls"): display_rels["Calls"] = [f"{m}()" for m in rels["calls"]]
+    if rels.get("called_by"): display_rels["Called By"] = [f"{m}()" for m in rels["called_by"]]
     
     lines = []
     lines.append("-" * 50)
@@ -42,7 +44,7 @@ def render_relationships(primary_full: dict) -> str:
     display_order = [
         "Inheritance", "Inherited By", "Owning Class",
         "Methods", "Returns", "Parameters", "Values",
-        "Returned By", "Used As Parameter"
+        "Returned By", "Used As Parameter", "Calls", "Called By"
     ]
     
     has_any = False
@@ -56,6 +58,17 @@ def render_relationships(primary_full: dict) -> str:
             lines.append("")
             has_any = True
             
+    # Format Depth-2 Call Graph Tree if present
+    call_graph_tree = primary_full.get("call_graph_tree")
+    if call_graph_tree:
+        lines.append("-" * 50)
+        lines.append("")
+        lines.append("Call Graph (Depth 2)")
+        lines.append("")
+        lines.append(call_graph_tree)
+        lines.append("")
+        has_any = True
+
     if not has_any:
         return ""
         

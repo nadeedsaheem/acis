@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "C:/Users/Dell/OneDrive/Desktop/step1/tests/mock_repo",
+    "command": "clang++ -Iinclude -DRELEASE=1 -std=c++20 main.cpp",
+    "file": "main.cpp"
+  }
+]

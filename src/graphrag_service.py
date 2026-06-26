@@ -59,7 +59,7 @@ class GraphRAGService:
             return empty_res
             
         # 1.8 Graph Context Enrichment
-        enriched_primary = enrich_context([primary_entity]) if primary_entity else []
+        enriched_primary = enrich_context([primary_entity], query) if primary_entity else []
         
         # 2. Context Builder
         context = build_context(enriched_primary, supporting_entities)

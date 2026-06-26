@@ -1,27 +1,27 @@
 # ACIS Knowledge Graph Phase 6 - Validation Report
 
 ## Execution Summary
-- **Start Time:** Fri Jun 26 02:44:50 2026
-- **End Time:** Fri Jun 26 02:46:07 2026
-- **Execution Time:** 77.04 seconds
+- **Start Time:** Fri Jun 26 19:54:15 2026
+- **End Time:** Fri Jun 26 19:55:12 2026
+- **Execution Time:** 57.65 seconds
 - **Errors Encountered:** 0
 
 ## Data Processed (from JSON)
-- Documentation parsed: 24318
-- Documentation loaded: 24318
+- Documentation parsed: 24325
+- Documentation loaded: 24325
 ## Validation Results (Neo4j Graph Database)
-- **Documentation Nodes Created:** 24318
-- **HAS_DOC Relationships Created:** 24318
+- **Documentation Nodes Created:** 24242
+- **HAS_DOC Relationships Created:** 24244
 
 ### Documentation by Entity Type
-- **Class Docs:** 1331
-- **Struct Docs:** 164
-- **Enum Docs:** 319
+- **Class Docs:** 1267
+- **Struct Docs:** 158
+- **Enum Docs:** 315
 - **Function Docs:** 19562
 - **Method Docs:** 2942
 
 ### Documentation Length Metrics
-- **Average Length:** 182.01 chars
+- **Average Length:** 181.44 chars
 - **Longest Length:** 17771 chars
 - **Shortest Length:** 1 chars
 

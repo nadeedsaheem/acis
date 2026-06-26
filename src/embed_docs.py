@@ -114,7 +114,12 @@ class SemanticRetriever:
         
         OPTIONAL MATCH (exact_e)
         WHERE (exact_e:Class OR exact_e:Method OR exact_e:Function OR exact_e:Struct OR exact_e:Enum)
-          AND toLower(exact_e.name) IN significant_words
+          AND (
+            toLower(exact_e.name) IN significant_words
+            OR toLower(exact_e.fqn) IN significant_words
+            OR any(word IN significant_words WHERE word ENDS WITH "::" + toLower(exact_e.name))
+            OR any(word IN significant_words WHERE toLower(exact_e.fqn) ENDS WITH "::" + word)
+          )
         OPTIONAL MATCH (exact_e)-[:HAS_DOC]->(exact_d:Documentation)
         
         // Group by name to prevent overloading from flooding top 10
@@ -164,7 +169,7 @@ class SemanticRetriever:
             RETURN {} AS context
         }
         
-        RETURN score, label AS entity_type, e.id AS entity_id, coalesce(e.name, '') AS entity_name, coalesce(d.text, '') AS documentation, context
+        RETURN score, label AS entity_type, e.id AS entity_id, coalesce(e.name, '') AS entity_name, coalesce(e.fqn, e.name, '') AS entity_fqn, coalesce(d.text, '') AS documentation, context
         ORDER BY score DESC
         """
         
@@ -178,6 +183,7 @@ class SemanticRetriever:
                 "entity_type": r['entity_type'],
                 "entity_id": r['entity_id'],
                 "entity_name": r['entity_name'],
+                "fqn": r['entity_fqn'],
                 "documentation": r['documentation'],
                 "context": r['context']
             })
