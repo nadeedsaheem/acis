@@ -3,3 +3,16 @@ __pycache__/
 *.pyc
 .env
 gmni.env
+
+# Runtime artifacts
+logs/
+*.log
+graph_build.log
+parse_summary.json
+failed_files.json
+retrieval_validation_report.md
+retrieval_certification.md
+
+# OS files
+.DS_Store
+Thumbs.db
